@@ -32,7 +32,7 @@
 ## Notes
 
 - User confirmed the CSV headers (`词条`, `comment`, `词条来源`), the existing `翻译简写说明` sheet, and a high-frequency threshold of at least 3 occurrences per word/comment pair in the input CSV.
-- The objective similarity method and low/high thresholds remain unresolved. They affect whether the system recommends distinct translations or asks for entity-identity review; resolve them before planning implementation details or code.
+- Similarity clarification: compare Chinese terms with dense-vector embeddings; scores >= 0.7 identify semantically related synonym candidates for HITL, while lower scores recommend distinct translations. Every collision remains subject to human review, and similarity never approves or changes a translation automatically.
 - Clarifications confirmed: draft CSVs include candidate translations and a per-row `审核状态` column; it tracks translation review only, while the glossary delta is reviewed separately after CSV completion.
 - User confirmed full-entry matching first; otherwise use jieba to segment Chinese, reuse applicable word-level translations, and compose natural English using comment/context without assuming the source is a grammatical Chinese sentence.
 - User confirmed: add applicable static Chinese glossary terms to jieba's custom dictionary, but exclude terms marked `伪代码术语=是`; use their remarks, comment, and scenario to determine the contextual translation (for example, `xxx配置` may become `Platform Tool` in a column-name context).

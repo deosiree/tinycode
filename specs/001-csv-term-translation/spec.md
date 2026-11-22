@@ -1,6 +1,6 @@
 # Feature Specification: CSV 词条英文翻译与消歧
 
-**Feature Branch**: `main` (当前分支；未创建专用功能分支)
+**Feature Branch**: `001-csv-term-translation`
 
 **Created**: 2026-11-22
 
