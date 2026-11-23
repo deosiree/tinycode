@@ -50,7 +50,7 @@ Sources: [commands.ts](src/cli/commands.ts#L56-L83)、[bootstrap.ts](src/bootstr
 
 注意 `provider` 和 `model` 是两个独立字段而非斜杠字符串；斜杠写法（`openai/gpt-5`）只出现在环境变量和 CLI 标志中，由 `parseModelRef` 函数负责拆分。
 
-Sources: [schema.ts](src/config/schema.ts#L16-L34)、[loader.ts](src/config/loader.ts#L66-L94)、[README.md](README.md#L136-L154)、[bootstrap.ts](src/bootstrap.ts#L91-L98)
+Sources: [schema.ts](src/config/schema.ts#L16-L34)、[loader.ts](src/config/loader.ts#L66-L94)、[README.en.md](../../README.en.md#L136-L154)、[bootstrap.ts](src/bootstrap.ts#L91-L98)
 
 **校验失败的语义值得单独强调**：配置解析用的是 Zod 的 `safeParse`，一旦失败，整个配置对象回退为空 `{}` 并打印带路径的警告信息——例如把 `permissionMode` 写成 `"sometimes"` 会得到警告而不是崩溃。这是一种"宁可保守也不中断"的设计：坏掉的配置不会让代理带着错误参数悄悄跑起来，也不会阻止你打开 TUI 去修复它。每个 `mcpServers` 条目自身还有一层子 schema，约束 `command` 必填、`timeoutMs` 上限 120 秒等。
 
@@ -100,7 +100,7 @@ Sources: [loader.ts](src/config/loader.ts#L32-L53)、[loader.ts](src/config/load
 
 第三道防线的取舍值得初学者留意：扫描命中**只警告不拒绝加载**。这是一个深思熟虑的折中——如果直接拒绝启动，一个无关紧要的误报（比如字段名碰巧含 `token` 一词的非敏感配置）就会把整个工具锁死；而警告既保住了可用性，又确保泄露者几乎不可能错过提示。仓库根目录的 `.gitignore` 则构成最后一道静态防线，把 `.env`、`.env.*`、`*.pem`、`*.key` 和 `.tinycode/*.local.json` 全部排除在提交之外——后者为你提供了 config.json 之外的本地私有配置逃生舱。
 
-Sources: [loader.ts](src/config/loader.ts#L55-L59)、[.gitignore](.gitignore#L7-L12)、[README.md](README.md#L156-L168)
+Sources: [loader.ts](src/config/loader.ts#L55-L59)、[.gitignore](.gitignore#L7-L12)、[README.en.md](../../README.en.md#L156-L168)
 
 日常实践中请遵守下表的分工：
 

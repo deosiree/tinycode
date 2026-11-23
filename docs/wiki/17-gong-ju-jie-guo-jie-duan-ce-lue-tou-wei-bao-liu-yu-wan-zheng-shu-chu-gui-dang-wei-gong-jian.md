@@ -6,7 +6,7 @@ Sources: [tool-results.ts](src/context/tool-results.ts#L4-L10), [manager.ts](src
 
 从第一性原理出发，构建与测试类日志的信息密度并非均匀分布：开头通常是命令回显、环境与配置信息，结尾聚集着错误摘要、失败用例列表与退出码，中间则是大量重复的进度输出。"只保留头部"的传统做法会恰好丢掉最有诊断价值的尾部错误。TinyCode 因此选择**中段截断**——头部与尾部各留一半预算，被丢弃的字符数以显式标记 `[… N characters truncated …]` 写回文本，让模型明确知道中间存在空洞而不是凭空补全。同时，任何被丢弃的内容都不真正消失：完整输出被写入工件文件，并在转录文本末尾追加一行指向该文件的路径，模型和用户都能按需取回全量数据。
 
-Sources: [bash.ts](src/tools/bash.ts#L28-L31), [tool-results.ts](src/context/tool-results.ts#L17-L26), [README.md](README.md#L122-L123)
+Sources: [bash.ts](src/tools/bash.ts#L28-L31), [tool-results.ts](src/context/tool-results.ts#L17-L26), [README.en.md](../../README.en.md#L122-L123)
 
 ## 双层防线：内存防线与上下文防线
 

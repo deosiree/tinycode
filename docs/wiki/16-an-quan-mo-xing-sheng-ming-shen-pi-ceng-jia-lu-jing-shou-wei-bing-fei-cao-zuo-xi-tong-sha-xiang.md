@@ -1,12 +1,12 @@
 本页回答一个必须精确理解的问题：TinyCode 到底向用户承诺了什么安全保障，又明确不承诺什么。仓库在三个位置留下了相互印证的声明——面向使用者的 README Security notes、写在实现处的路径守卫注释、以及风险分类器的自我定位注释。三者共同指向同一结论：**权限系统是一道应用内的审批闸门加一个符号链接感知的路径检查，而不是操作系统级的隔离沙箱**。智能体的每一次执行都发生在你自己的用户账号下，拥有你的全部凭据与环境变量。本页逐层拆解这两道机制的真实覆盖面、失效模式，并给出威胁模型对照与运行守则。
 
-Sources: [README.md](README.md#L156-L168)、[paths.ts](src/tools/paths.ts#L5-L18)、[classifier.ts](src/permissions/classifier.ts#L1-L11)
+Sources: [README.en.md](../../README.en.md#L156-L168)、[paths.ts](src/tools/paths.ts#L5-L18)、[classifier.ts](src/permissions/classifier.ts#L1-L11)
 
 ## 一句声明的三个锚点
 
-声明并非营销文案，而是刻意写进代码库三个层面的工程约束。第一处在 [README.md](README.md#L158) 的 Security notes 章节，原文为 "approval layer + workspace path guard, not an OS sandbox"，并紧跟四条边界说明：文件工具通过双侧 realpath 规范化强制项目边界；shell 命令只受风险分类器与审批流程约束而不被监禁；运行真正不可信的代码需要外部沙箱（容器或虚拟机）；API 密钥只应存在于环境变量中。第二处在 [paths.ts](src/tools/paths.ts#L16-L17) 守卫实现的文档注释里，措辞更直白："This is a path guard, not an OS sandbox: bash commands can still touch anything the user's shell can. The permission layer approves those." 第三处在 [classifier.ts](src/permissions/classifier.ts#L8-L10)，自述"deliberately heuristic: its job is to route decisions between ALLOW / ASK, not to be a security sandbox"。把声明放在实现现场而非仅放宣传页，是为了防止未来贡献者在扩展工具时高估这道防线的强度。
+声明并非营销文案，而是刻意写进代码库三个层面的工程约束。第一处在 [README.en.md](../../README.en.md#L158) 的 Security notes 章节，原文为 "approval layer + workspace path guard, not an OS sandbox"，并紧跟四条边界说明：文件工具通过双侧 realpath 规范化强制项目边界；shell 命令只受风险分类器与审批流程约束而不被监禁；运行真正不可信的代码需要外部沙箱（容器或虚拟机）；API 密钥只应存在于环境变量中。第二处在 [paths.ts](src/tools/paths.ts#L16-L17) 守卫实现的文档注释里，措辞更直白："This is a path guard, not an OS sandbox: bash commands can still touch anything the user's shell can. The permission layer approves those." 第三处在 [classifier.ts](src/permissions/classifier.ts#L8-L10)，自述"deliberately heuristic: its job is to route decisions between ALLOW / ASK, not to be a security sandbox"。把声明放在实现现场而非仅放宣传页，是为了防止未来贡献者在扩展工具时高估这道防线的强度。
 
-Sources: [README.md](README.md#L156-L168)、[paths.ts](src/tools/paths.ts#L5-L18)、[classifier.ts](src/permissions/classifier.ts#L1-L11)
+Sources: [README.en.md](../../README.en.md#L156-L168)、[paths.ts](src/tools/paths.ts#L5-L18)、[classifier.ts](src/permissions/classifier.ts#L1-L11)
 
 ## 两道机制的分工与交汇点
 
@@ -91,7 +91,7 @@ Sources: [rules.ts](src/permissions/rules.ts#L44-L62)、[permission-hardening.te
 | API 密钥不会流向模型/进程 | 配置文件中的密钥字段触发启动告警；`.gitignore` 排除密钥文件 | bash 子进程继承完整环境变量且 `printenv` 属 safe 级 |
 | MCP 工具受同样的路径纪律约束 | 否——守卫只在内置工具实现体内 | 外部服务器进程的行为对本地代码不可见 |
 
-Sources: [classifier.ts](src/permissions/classifier.ts#L52-L59)、[rules.ts](src/permissions/rules.ts#L96-L105)、[bash.ts](src/tools/bash.ts#L83-L87)、[README.md](README.md#L156-L168)
+Sources: [classifier.ts](src/permissions/classifier.ts#L52-L59)、[rules.ts](src/permissions/rules.ts#L96-L105)、[bash.ts](src/tools/bash.ts#L83-L87)、[README.en.md](../../README.en.md#L156-L168)
 
 ## 纵深防御的真实剖面与运行守则
 
@@ -116,7 +116,7 @@ flowchart TB
 
 据此得出与 README 完全一致的运行守则：**TinyCode 适合在你自己拥有并信任的项目目录里充当受监督的编码协作者——审批对话框就是人机契约的履约现场**；而运行真正不可信的代码或任务时，必须由外部提供隔离边界（容器、虚拟机），TinyCode 自身不替代它们。配套的卫生习惯同样写在 Security notes 中：API 密钥只放环境变量，`.tinycode/*.local.json` 等密钥形态文件已被 `.gitignore` 覆盖，配置文件中出现疑似密钥的字段会在启动时收到醒目警告。一句话收束本页：这套系统保证的是"**没有你的知情同意，危险操作不应发生**"，而不是"即使智能体失控也造不成破坏"——后者属于沙箱的职责，前者才是审批层的承诺。
 
-Sources: [README.md](README.md#L156-L168)、[ARCHITECTURE.md](ARCHITECTURE.md#L114-L139)
+Sources: [README.en.md](../../README.en.md#L156-L168)、[ARCHITECTURE.md](ARCHITECTURE.md#L114-L139)
 
 ## 下一步阅读
 
