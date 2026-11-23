@@ -14,7 +14,7 @@ flowchart TD
 
 这一分层意味着：即使所有进程内测试都通过，仍可能存在只有真实终端环境才能暴露的缺陷——括号粘贴模式的输入语义、斜杠命令自动补全菜单吞掉回车键、SIGINT 信号路径等。PTY 测试正是为这些"最后一厘米"问题而生。
 
-Sources: [tui.test.ts](tests/tui.test.ts#L12-L51)、[README.md](README.md#L178-L187)
+Sources: [tui.test.ts](tests/tui.test.ts#L12-L51)、[README.en.md](../../README.en.md#L178-L187)
 
 ## PTY 冒烟测试的运行机制
 
@@ -132,7 +132,7 @@ Sources: [ci.yml](.github/workflows/ci.yml#L24-L29)、[package.json](package.jso
 
 回顾整套质量门禁，可以看到三条贯穿始终的原则。**离线优先**：从单元测试到 PTY 冒烟再到 CI 冒烟检查，全程只依赖确定性 Mock 模型，README 明确承诺"完全离线——永远不需要 API key"。**真实产物**：PTY 测试驱动的是 `dist/` 构建产物而非源码转译结果，CLI 冒烟直接执行 `node dist/cli/index.js`，杜绝"测试通过但发布物损坏"的裂缝。**故障显式化**：无论是带标签的轮询超时、`Promise.race` 挂起检测器的命名错误信息，还是 `fail-fast: false` 保留的双版本完整结果，设计者始终致力于让失败"说出自己的名字"。对于想为项目贡献代码的开发者，理解这道门禁的意义在于：任何影响 TUI 交互或进程生命周期的改动，都会在这套装置面前接受最接近真实用户体验的检验。
 
-Sources: [README.md](README.md#L180-L192)、[ci.yml](.github/workflows/ci.yml#L43-L48)
+Sources: [README.en.md](../../README.en.md#L180-L192)、[ci.yml](.github/workflows/ci.yml#L43-L48)
 
 ---
 

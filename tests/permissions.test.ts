@@ -36,13 +36,21 @@ describe("command classifier", () => {
 describe("path rules", () => {
   const root = "/proj/root";
 
-  it("detects inside/outside project paths", () => {
+  /**
+   * Verifies project-boundary checks and normalization on the current OS.
+   * @returns {void}
+   */
+  function detectsInsideOutsideProjectPaths(): void {
     expect(resolveToolPath(root, "src/a.ts").insideProject).toBe(true);
     expect(resolveToolPath(root, undefined).insideProject).toBe(true);
     expect(resolveToolPath(root, "../sibling").insideProject).toBe(false);
     expect(resolveToolPath(root, "/etc/hosts").insideProject).toBe(false);
-    expect(resolveToolPath(root, "src/../src/a.ts").absolute).toBe("/proj/root/src/a.ts");
-  });
+    expect(resolveToolPath(root, "src/../src/a.ts").absolute).toBe(
+      resolveToolPath(root, "src/a.ts").absolute,
+    );
+  }
+
+  it("detects inside/outside project paths", detectsInsideOutsideProjectPaths);
 });
 
 describe("rule evaluation", () => {

@@ -1,5 +1,5 @@
 # TinyCode Architecture
-
+[简体中文](./ARCHITECTURE.zh-CN.md) | [English](./ARCHITECTURE.md)<br>
 This document explains how TinyCode works: the modules, the data flow, and — most
 importantly — **which capabilities come from Pi and which TinyCode implements itself**.
 

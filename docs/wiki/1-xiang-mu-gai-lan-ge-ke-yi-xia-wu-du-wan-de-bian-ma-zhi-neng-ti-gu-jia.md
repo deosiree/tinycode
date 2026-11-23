@@ -1,6 +1,6 @@
 本页是整个文档站的起点，回答三个问题：TinyCode 是什么、它为什么值得初学者通读源码、以及它的整体架构长什么样。读完本页你不需要理解任何一行具体实现——只需要建立一张"心智地图"，知道每个子系统住在哪里、彼此如何衔接。后续章节会逐一深入这些子系统，本页只负责指路。
 
-Sources: [README.md](README.md#L3-L17)
+Sources: [README.en.md](../../README.en.md#L3-L17)
 
 ## TinyCode 是什么：与生产级智能体"反着设计"
 
@@ -13,7 +13,7 @@ Model + Agent Loop + Tools + Permissions + Session
 
 这十个部件不是玩具演示——它基于 [Pi](https://github.com/earendil-works/pi) 运行时构建，循环真的在流式输出、工具真的在执行、会话真的在落盘。项目自述约 6k 行代码"每一行都值得阅读"，实测 `src/` 目录 TypeScript 源码共 4,647 行，加上测试约 7 千行，与自述量级一致。
 
-Sources: [README.md](README.md#L20-L28), [package.json](package.json#L26-L31)
+Sources: [README.en.md](../../README.en.md#L20-L28), [package.json](package.json#L26-L31)
 
 它与同类项目的对比可以帮你快速定位学习价值。注意最后一列：Claude Code 这类产品虽然强大，但对想理解原理的初学者并不友好（闭源或体积过大）；而 TinyCode 在"完整子系统"与"可读性"之间取得了罕见的平衡。
 
@@ -25,7 +25,7 @@ Sources: [README.md](README.md#L20-L28), [package.json](package.json#L26-L31)
 | OpenCode | TS + Go | 生产级 IDE/CLI | ⚠️ 多进程架构 |
 | pi coding-agent | TypeScript | Pi 全功能智能体 | ✅ 适合作为 TinyCode 之后的一站 |
 
-Sources: [README.md](README.md#L60-L82)
+Sources: [README.en.md](../../README.en.md#L60-L82)
 
 ## 为什么"一下午能读完"不是营销话术
 
@@ -46,7 +46,7 @@ Sources: [README.md](README.md#L60-L82)
 
 这个分布本身就透露了设计哲学：工具和界面（交互最多的部分）占大头，而核心运行时 `agent` 目录只有 167 行——因为复杂的控制流被委托给了底层的 Pi 库，TinyCode 自己只写**策略**。
 
-Sources: [README.md](README.md#L109-L134), [src/agent/runtime.ts](src/agent/runtime.ts#L28-L31)
+Sources: [README.en.md](../../README.en.md#L109-L134), [src/agent/runtime.ts](src/agent/runtime.ts#L28-L31)
 
 ## 架构鸟瞰：先看地图，再进森林
 
@@ -125,13 +125,13 @@ Sources: [src/bootstrap.ts](src/bootstrap.ts#L36-L64), [src/bootstrap.ts](src/bo
 
 值得一提的是安全姿态：TinyCode 明确声明自己的权限系统是**审批层加工作区路径守卫，而非操作系统沙箱**——被批准的 bash 命令可以做你用户能做的一切事。API 密钥只从环境变量读取，配置文件中出现疑似密钥的字段会在启动时大声警告。这种坦诚的边界声明在教学项目中尤为可贵。
 
-Sources: [README.md](README.md#L156-L168)
+Sources: [README.en.md](../../README.en.md#L156-L168)
 
 ## 测试也是教学材料
 
 TinyCode 的测试策略本身就是一堂课：全部测试离线运行，永远不需要 API Key。旗舰 E2E 测试用脚本化的 Mock 模型驱动**真实的**代理循环走完 `bash → read → edit → bash → 最终答复` 流程，修复一个故意写坏的 fixture 项目，然后断言 fixture 的测试通过、会话文件完整。CI 在 Node 22 和 24 双版本上跑同样的质量门禁。读源码卡壳时，对应的测试文件往往是最直白的用法示例。
 
-Sources: [README.md](README.md#L178-L192)
+Sources: [README.en.md](../../README.en.md#L178-L192)
 
 ## 建议的阅读路径
 
@@ -143,6 +143,6 @@ Sources: [README.md](README.md#L178-L192)
 4. **解剖核心** —— 五条钩子的逐行解读在[TinyCodeRuntime 解剖：五个策略钩子接入 Pi 代理循环](8-tinycoderuntime-jie-pou-wu-ge-ce-lue-gou-zi-jie-ru-pi-dai-li-xun-huan)；之后可按兴趣跳转工具体系（[七大内置工具详解：read/edit/bash 等的行为契约](10-qi-da-nei-zhi-gong-ju-xiang-jie-read-edit-bash-deng-de-xing-wei-qi-yue)）、权限安全（[权限闸门裁决顺序：硬拒绝、记忆模式、auto 与 ASK 回退](14-quan-xian-zha-men-cai-jue-shun-xu-ying-ju-ji-yi-mo-shi-auto-yu-ask-hui-tui)）或扩展机制（[MCP 集成：stdio 服务器并行连接与单点故障隔离](22-mcp-ji-cheng-stdio-fu-wu-qi-bing-xing-lian-jie-yu-dan-dian-gu-zhang-ge-chi)）
 5. **收官** —— 用离线测试策略串起全部知识：[全离线测试策略：脚本化 Mock 模型驱动真实代理循环的 E2E](26-quan-chi-xian-ce-shi-ce-lue-jiao-ben-hua-mock-mo-xing-qu-dong-zhen-shi-dai-li-xun-huan-de-e2e)
 
-Sources: [README.md](README.md#L170-L176), [ARCHITECTURE.md](ARCHITECTURE.md#L32-L50)
+Sources: [README.en.md](../../README.en.md#L170-L176), [ARCHITECTURE.md](ARCHITECTURE.md#L32-L50)
 
 一张图总结本页要点：TinyCode 用不到五千行源码证明了"生产级智能体的每个子系统都可以写得足够小、足够清楚"。接下来，让我们把它真正跑起来。
