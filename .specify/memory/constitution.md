@@ -1,69 +1,64 @@
 <!--
-Sync Impact Report
-Version change: unresolved scaffold -> 1.0.0 (initial ratification)
-Modified principles: Added all five core principles
-Added sections: Technical Constraints; Development Workflow
-Removed sections: None
-Follow-up TODOs: None
-Deferred intent: Define the vocabulary translation agent in a feature spec, including
-  term sources, target languages, outputs, spreadsheet sheets, entity disambiguation,
-  and human review points.
+修订影响报告
+版本变更：1.1.0 -> 1.2.0
+修订原则：VI. Scenario-First Agent Delivery and Evaluation -> VI. 场景驱动的 Agent 设计与评测
+新增原则：VII. 中文文档主体
+新增章节：无
+删除章节：无
+后续事项：无
 -->
-# TinyCode Constitution
+# TinyCode 项目宪法
 
-## Core Principles
+## 核心原则
 
-### I. Simplicity and Readability
-Implement the smallest complete design that fits the existing project. MUST avoid
-unnecessary abstraction, duplicated normalization layers, defensive branches for
-impossible states, and changes that drift beyond the stated goal. MUST preserve the
-project's readable, compact module boundaries.
+### I. 简洁与可读性
+必须实现符合项目现状和目标的最小完整方案。不得引入不必要的抽象、重复的归一化层、
+针对不可能状态的防御分支，或偏离既定目标的改动。必须保持模块边界清晰、紧凑且易读。
 
-### II. Explicit Contracts and Idempotent Effects
-Inputs, outputs, ownership boundaries, and side effects MUST be explicit. Operations
-that may be retried MUST be idempotent or define an explicit deduplication key and
-retry behavior. When SQL-backed features compose related entities, MUST fetch and
-combine them in the application layer; SQL joins are not permitted.
+### II. 显式契约与幂等副作用
+输入、输出、责任边界和副作用必须明确。可重试的操作必须具备幂等性；否则必须定义明确的
+去重键和重试行为。基于 SQL 的功能需要组合相关实体时，必须在应用层读取并组合数据，禁止
+使用 SQL JOIN。
 
-### III. Correctness at Boundaries
-MUST express constraints through TypeScript types and validate untrusted input at
-system boundaries. Prefer existing types and validation points over broad defensive
-programming or generic normalization helpers. Agent actions that cannot be resolved
-from explicit rules MUST be surfaced for human review rather than silently guessed.
+### III. 边界处的正确性
+必须通过 TypeScript 类型表达约束，并在系统边界校验不可信输入。优先复用现有类型和校验点，
+避免广泛的防御式编程或通用归一化辅助函数。Agent 无法依据明确规则作出判断时，必须提交人工
+审查，不得默默猜测。
 
-### IV. Chinese Code Documentation
-Every new or modified function MUST have Chinese JSDoc describing its responsibility
-and documenting each parameter and return value. Important non-obvious logic MUST
-have a concise Chinese line comment explaining the reasoning. Comments MUST clarify
-intent rather than repeat the code.
+### IV. 代码文档使用中文
+每个新增或修改的函数都必须带有中文 JSDoc，说明函数职责并记录每个参数和返回值。重要且不
+明显的逻辑必须附有简短中文行注释，解释其原因。注释必须阐明意图，不得重复代码内容。
 
-### V. Verifiable Behavior
-Behavior changes MUST have focused automated coverage using the repository's existing
-test style. Tests for core behavior SHOULD be deterministic and runnable without
-network access. Completion MUST be checked against the feature's stated acceptance
-criteria and relevant project checks.
+### V. 行为必须可验证
+行为变更必须按照仓库现有测试风格添加有针对性的自动化覆盖。核心行为测试应当可重复，并且
+无需网络即可运行。完成前必须根据功能验收标准和相关项目检查核对结果。
 
-## Technical Constraints
+### VI. 场景驱动的 Agent 设计与评测
+Agent 功能必须从明确的场景和验收标准出发。只有在需求确有需要时，才应选择相应材料、工具、
+权限、编排方式和产品界面；没有具体需求时不得引入 RAG 或 Multi-agent。将 Agent 作为可靠交付
+前，必须定义可重复执行的评测用例，评估最终结果；当正确性取决于工具调用或多步执行时，还必须
+评估相关 Trace。适用时，评测必须考虑证据、安全边界以及 Token 或执行成本。评测失败必须回流
+到对应设计环节，并阻止交付，直至问题修正或经人工明确接受。
 
-The project uses TypeScript, ESM, and Node.js 22.19 or later. MUST prefer the existing
-Pi runtime and project dependencies before introducing another framework or runtime.
-Feature specifications MUST define material inputs, outputs, external references,
-and human approval points before implementation when those affect correctness.
+### VII. 中文文档主体
+新增或修改的项目文档正文（包括 README、设计/规范/计划、用户指南、规则文件、代码注释及
+JSDoc）必须以简体中文为主。专有名词、标准名称、代码标识符、API/CLI 名称及协议规定的固定
+字符串可以保留原文。仅当用户明确要求英文或文档明确面向英语读者时，才使用英文正文，例如
+README.en.md。
 
-## Development Workflow
+## 技术约束
+项目使用 TypeScript、ESM 和 Node.js 22.19 或更高版本。引入其他框架或运行环境前，必须优先
+使用现有的 Pi runtime 和项目依赖。凡会影响正确性的功能，规格文档必须在实现前明确重要输入、
+输出、外部引用和人工审批点。
 
-Work MUST remain traceable to an approved feature specification and its acceptance
-criteria. Planning and implementation artifacts MUST use repository conventions.
-Human review is required for unresolved business ambiguity or decisions that change
-user-visible data. Before completion, review the diff and report verification results
-and any unmet acceptance criteria.
+## 开发流程
+工作必须与已批准的功能规格及其验收标准保持可追溯。规划和实现材料必须遵守仓库约定。业务含义
+尚未明确，或决策会改变用户可见数据时，必须进行人工审查。完成前必须审查差异，并报告验证结果
+以及尚未满足的验收标准。
 
-## Governance
+## 治理
+本宪法约束项目的设计和实现决策。功能规格可以增加更严格的要求，但未经明确的宪法修订，不得
+削弱本宪法原则。修订必须记录理由、按语义化版本更新，并审查受影响的规格和实现材料。规划与
+审查期间必须依据本宪法核查变更。
 
-This constitution governs project design and implementation decisions. A feature
-specification MAY add stricter requirements, but MUST NOT weaken these principles
-without an explicit constitution amendment. Amendments require a documented rationale,
-a semantic-version update, and review of affected specifications and implementation
-artifacts. Changes MUST be checked against this constitution during planning and review.
-
-**Version**: 1.0.0 | **Ratified**: 2026-11-22 | **Last Amended**: 2026-11-22
+**Version**: 1.2.0 | **Ratified**: 2026-11-22 | **Last Amended**: 2026-11-23
