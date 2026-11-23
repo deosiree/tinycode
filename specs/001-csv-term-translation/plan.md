@@ -65,25 +65,26 @@
 
     .tinycode/skills/csv-term-translation/SKILL.md
     .tinycode/skills/csv-term-translation-handoff/SKILL.md
-    src/term-translation/
-    ├── types.ts                 # CSV 行、术语、候选与审核状态
-    ├── csv.ts                   # UTF-8 CSV 解析、字段校验与副本写入
-    ├── glossary.ts              # 指定 XLSX sheet 读取与应用层索引
-    ├── translation.ts           # jieba 分词、术语候选与 embedding 相似度
-    ├── workflow.ts              # 单次翻译流程、HITL 汇总与完成检查
-    ├── consent.ts               # 任务级 Embedding 外发授权契约
-    └── tool.ts                  # TinyCode AgentTool 适配
-    src/bootstrap.ts             # 注册词条翻译工具并注入当前 model/streamFn/确认回调
-    src/tui/external-data-consent.ts # 启动翻译任务时自动授权一次
-    src/cli/external-data-consent.ts # -p 模式 TTY 确认回调，提示写 stderr、答案读 stdin
     assets/glossary/常用注意要点清单.xlsx
+    src/tools/csv-term-translation.ts  # AgentTool 适配器
+    src/tools/index.ts                # 导出翻译工具
+    src/bootstrap.ts                  # 注册工具并注入运行时依赖
+    src/tui/external-data-consent.ts  # 交互界面的任务级授权
+    src/cli/external-data-consent.ts  # 命令行的单次确认
+    src/term-translation/
+    ├── types.ts
+    ├── csv.ts
+    ├── glossary.ts
+    ├── translation.ts
+    ├── workflow.ts
+    └── consent.ts
     tests/term-translation/
     ├── csv.test.ts
     ├── glossary.test.ts
     ├── translation.test.ts
     └── workflow.test.ts
 
-**Structure Decision**: 复用仓库现有的 TinyCode 项目级技能发现机制，产品技能说明由 `.tinycode/skills/csv-term-translation/SKILL.md` 提供；当前会话续作记录保存在 `.tinycode/skills/csv-term-translation-handoff/SKILL.md`。文件操作与确定性业务规则集中在 `src/term-translation/`，通过单个 AgentTool 进入现有 Agent 循环。bootstrap 将当前 model、streamFn 和任务级 consent callback 注入工作流，由工作流按每批 1000 条处理；翻译与 LLM judge 模型调用共享并发上限 10，完成一批后保存结果；不创建子 Agent。伪代码术语约束由翻译流程将匹配属性和备注传入模型，并在 `workflow.ts` 编排全量脚本检查、全量 LLM judge、批内随机 HITL 抽查及抽查失败后的整批复核。TUI callback 在用户启动翻译任务后自动授权该任务全部 Embeddings 请求；`-p` headless callback 仅在交互式 TTY 中通过一次明确确认授权，无 TTY 时拒绝并报告未完成。授权不复用通用工具权限或记忆授权，也不按 Embeddings API 请求逐次提示。冲突审核按冲突组聚合。参考资产沿用已入库的 `assets/glossary/`；不修改通用 Agent runtime、通用权限策略或 session 格式。
+**Structure Decision**: 依据 TinyCode 自身按能力组织 `src/*` 的架构，而不是照搬 Craft Agents 的 `apps/`/`packages/` 工作区结构。词条翻译规则和数据处理集中在新增的 `src/term-translation/` 子系统，与现有 `src/mcp/`、`src/session/` 等能力目录同级；AgentTool 适配器放在现有 `src/tools/`，由 `src/bootstrap.ts` 注册并注入当前 model、streamFn 和任务级授权回调。TUI 与命令行的授权交互分别放在现有 `src/tui/` 和 `src/cli/`。项目技能说明由 `.tinycode/skills/csv-term-translation/SKILL.md` 提供，会话续作记录保存在 `.tinycode/skills/csv-term-translation-handoff/SKILL.md`。工作流按每批 1000 条处理，翻译与 LLM judge 模型调用共享并发上限 10，完成一批后保存结果；不创建子 Agent。伪代码术语约束由翻译流程传入匹配属性和备注，并由 `workflow.ts` 编排脚本检查、LLM judge、批内随机 HITL 抽查及抽查失败后的整批复核。参考资产沿用 `assets/glossary/`；不修改通用 Agent runtime、通用权限策略或 session 格式。
 
 ## Constitution Check (Post-Design)
 
