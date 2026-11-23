@@ -22,7 +22,7 @@
 
 **Storage**: 本地 UTF-8 CSV、仓库版本化 XLSX、翻译输出 CSV（含逐行审核状态和错误说明）、增量 XLSX，以及位于 TinyCode 用户数据目录的 Qdrant 服务持久数据和按项目隔离的来源版本清单。各项目使用独立 collection 和稳定 `userId`；记忆数据不进入项目版本控制，各机器从随项目版本化工作簿初始化相同基线，用户提交的额外参考资料保持本机私有。
 
-**Testing**: Vitest；翻译模型和 Embedding 请求使用 mock，文件和工作簿使用确定性 fixture；记忆集成测试在 loopback 启动隔离的 Qdrant 服务并使用临时持久目录，不访问外网。覆盖 Mem0 add/search 适配、来源指纹幂等导入、active-version 切换、软删除后检索排除、恢复/回滚旧版本、进程重启后检索、跨项目隔离、Mem0/Qdrant telemetry 关闭、外发授权及失败门禁，并覆盖每批 1000 条边界、翻译与 judge 模型调用合计并发上限 10、批次落盘、冲突组审核聚合，以及伪代码术语候选的全量脚本检查、全量 LLM judge、按批随机抽查和抽查失败后的全批复核。
+**Testing**: Vitest；CI 中翻译模型和 Embedding 请求使用 mock，文件和工作簿使用确定性 fixture；记忆集成测试在 loopback 启动隔离的 Qdrant 服务并使用临时持久目录，不访问外网。另用版本化、脱敏的固定评测样例，通过 TinyCode 当前配置模型做一次受控验收；该验收记录最终译文判定、search/模型调用轨迹及 token/成本，不发送用户 CSV，也不纳入自动 CI。覆盖 Mem0 add/search 适配、来源指纹幂等导入、active-version 切换、软删除后检索排除、恢复/回滚旧版本、进程重启后检索、跨项目隔离、Mem0/Qdrant telemetry 关闭、外发授权及失败门禁，并覆盖每批 1000 条边界、翻译与 judge 模型调用合计并发上限 10、批次落盘、冲突组审核聚合，以及伪代码术语候选的全量脚本检查、全量 LLM judge、按批随机抽查和抽查失败后的全批复核。
 
 所有英文译文还需执行占位符脚本检查：花括号占位符保持原文、数量和原序；编号百分号占位符保持标识、格式和数量但允许重排。校验失败记录原因并阻止任务完成。
 
@@ -47,6 +47,8 @@
 | III. 边界正确性 | PASS | 在读写边界检查 UTF-8、CSV 列与工作簿 sheet；未知语义和冲突由 HITL 决策。 |
 | IV. 中文代码文档 | PASS | 新增或修改函数均提供中文 JSDoc；复杂规则附中文行注释。 |
 | V. 可验证行为 | PASS | Vitest 覆盖确定性文件逻辑、loopback Qdrant 服务 fixture 和 mock embedding；测试不访问外网。 |
+| VI. 场景驱动的 Agent 设计与评测 | PASS | 四个开发关口均从用户场景和验收证据出发，并为失败定义回流路径。 |
+| VII. 中文文档主体 | PASS | 新增计划、任务和续作说明以简体中文为主，技术标识与协议字段保留原文。 |
 
 ## Project Structure
 
@@ -80,20 +82,61 @@
     ├── csv.ts
     ├── glossary.ts
     ├── translation.ts
+    ├── quality.ts
+    ├── batching.ts
+    ├── conflicts.ts
     ├── workflow.ts
     ├── memory.ts
     ├── mem0-adapter.ts
     ├── source-manifest.ts
     └── consent.ts
+    tests/fixtures/term-translation/evaluation-cases.json
     tests/term-translation/
     ├── csv.test.ts
     ├── glossary.test.ts
     ├── translation.test.ts
+    ├── quality.test.ts
+    ├── conflicts.test.ts
+    ├── reviews.test.ts
     ├── workflow.test.ts
+    ├── batching.test.ts
+    ├── evaluation.test.ts
+    ├── consent.test.ts
+    ├── source-manifest.test.ts
+    ├── mem0-adapter.test.ts
     └── memory.test.ts
 
 **Structure Decision**: 依据 TinyCode 自身按能力组织 `src/*` 的架构，而不是照搬 Craft Agents 的 `apps/`/`packages/` 工作区结构。词条翻译规则和数据处理集中在新增的 `src/term-translation/` 子系统；`glossary.ts` 负责解析参考工作簿，`memory.ts` 编排本功能的导入授权和记忆操作，`mem0-adapter.ts` 将结构化术语片段映射到 Mem0 OSS SDK 的原文 add/search，`source-manifest.ts` 维护来源指纹及 active-version 清单。Mem0 的 Qdrant provider 通过 `@qdrant/js-client-rest` 连接 `http://127.0.0.1:6333`；TypeScript REST client 不支持嵌入式 `path` 模式，因此本机 Qdrant 服务负责将数据持久化到 `dataHome()/memory/csv-term-translation/qdrant/storage`，每个项目使用独立 collection 和稳定 `userId`。Qdrant 与 Mem0 telemetry 均须关闭。写入版本先完成后再原子切换来源清单，search 以清单中的 active version 元数据过滤结果。Mem0 SDK 负责 add/search、Embedding 和语义检索；TinyCode 适配层负责工作簿解析、授权、来源幂等和版本清单。`src/tools/add-reference-material.ts` 提供参考资料 add 工具，并在参考文档提交到翻译工作流时自动调用；翻译工具与导入工具均由 `src/bootstrap.ts` 注册并注入授权回调。本机 Qdrant 服务是运行时前置条件，必须绑定 loopback 并使用用户数据目录持久化；TinyCode 在服务不可用时 fail closed，不启动托管或远程数据库。TUI 与命令行的授权交互分别放在现有 `src/tui/` 和 `src/cli/`。项目技能说明由 `.tinycode/skills/csv-term-translation/SKILL.md` 提供，会话续作记录保存在 `.tinycode/skills/csv-term-translation-handoff/SKILL.md`。工作流按每批 1000 条处理，翻译与 LLM judge 模型调用共享并发上限 10，完成一批后保存结果；不创建子 Agent。每条翻译与 judge 调用都先 search，最多注入 5 条相关记录；伪代码术语约束只来自当前候选实际检索到的匹配属性和备注。参考资产沿用 `assets/glossary/`；不修改通用 Agent runtime、通用权限策略或 session 格式。
 **Memory Lifecycle Decision**: `source-manifest.ts` 除来源指纹和 active-version 指针外，还记录保留版本与软删除状态。`src/tools/manage-reference-memory.ts` 暴露 `manage_reference_memory`，提供按来源软删除及恢复/回滚到指定版本；软删除来源的所有版本都从 search 过滤，历史向量保留在本机以便回滚，操作只更新本地来源清单，不调用 Embedding API。
+
+## Agent 开发流程（四板斧）
+
+本功能按四个开发关口推进，并在交付判定处按失败原因回流；每一关均需留下可复核产物和验收证据。四关映射回 spec 用户故事，避免按技术文件堆任务。
+
+| 关口 | 开发问题 | 设计产物与模块 | 验收门禁 |
+|---|---|---|---|
+| 1. 场景材料与外部能力 | Agent 需要哪些可信材料、工具和外部能力，哪些数据会离开本机？ | 场景与来源清单、版本化术语工作簿、本机 Mem0/Qdrant、add/search 契约、外发授权边界；主要对应 US4。 | 指定 sheet 可解析；导入幂等且可回滚；项目隔离和 telemetry 关闭；未授权不外发；本机 Qdrant 启动条件可复现。 |
+| 2. Agent 编排与推理 | Agent 如何从用户输入走到可恢复、可追溯的翻译候选？ | CSV 输入、jieba 分词、记忆检索、提示词、翻译/LLM judge、批次调度和工具适配；主要对应 US1。 | 调用轨迹可验证为 search → 翻译/judge → 检查 → 落盘；批次和并发受限；失败可恢复；输入不被覆盖。 |
+| 3. 评测与调优 | 如何证明结果符合术语规则，如何把不确定项交给人？ | 确定性检查、LLM judge、伪代码术语按批抽样、固定回归集、受控模型评测、token/成本与调用证据、相似度冲突组及审核决定；主要对应 US2，并为 US1 提供质量门禁。 | 固定规则和轨迹检查全部通过；受控模型评测逐条核对最终译文，拒绝项回到本关调优；成本证据可复核；抽查失败升级全批 HITL；冲突未经明确决定不得写为批准。 |
+| 4. 全栈产品交付 | 用户怎样启动、授权、审核、恢复并取回结果？ | 翻译/add/manage AgentTool、项目 skill、TUI/headless 授权反馈、CSV/XLSX 输出、跨平台 quickstart、端到端验收与交付报告；主要对应 US3 及跨故事集成。 | TUI/headless 工作流符合契约；输出固定且幂等；错误、待审核和完成状态可辨；安装运行步骤和证据报告完整。 |
+
+```mermaid
+flowchart TD
+    start([场景问题]) --> a1[第一板斧：场景材料与外部能力]
+    a1 --> a2[第二板斧：Agent 编排与推理]
+    a2 --> a3[第三板斧：Agent 评测与调优]
+    a3 --> a4[第四板斧：全栈产品交付]
+    a4 --> gate{结果能否交付？}
+    gate -- 能 --> deliver[交付 Report / 方案 / Action / Eval]
+    gate -- 缺材料 --> a1
+    gate -- 推理不符合或超预算、证据不足 --> a2
+    gate -- 质量不达标 --> a3
+    gate -- 产品集成不完整 --> a4
+```
+
+### 交付失败回流规则
+
+未通过交付判定时，先记录失败证据和责任关口，修复该关口后重跑受影响的验收；不能通过放宽验收或跳过 HITL 来清除失败。US4 的基础记忆能力必须先于 US1 的翻译 MVP，因为每次翻译和 judge 之前都须成功检索本地记忆。用户故事标签追踪需求，四轴及其回流规则保证 Agent 从场景到可交付结果的开发闭环。
 
 ## Constitution Check (Post-Design)
 
@@ -104,6 +147,8 @@
 | III. 边界正确性 | PASS | 输入校验集中在边界；相似度不绕过 HITL；API 失败不得标记任务完成。 |
 | IV. 中文代码文档 | PASS | 作为实现验收门槛写入 quickstart 和后续 tasks。 |
 | V. 可验证行为 | PASS | 关键分支均可用隔离 loopback Qdrant 服务、临时持久目录和 mock 模型/Embedding 确定性验证。 |
+| VI. 场景驱动的 Agent 设计与评测 | PASS | 四关均有可复核产物和门禁；失败按材料、推理、质量或集成问题回流，并在交付报告中保留评测证据。 |
+| VII. 中文文档主体 | PASS | 规格、计划、任务、quickstart 和项目 skill 以简体中文为主，保留必要技术标识和协议字符串。 |
 
 ## Complexity Tracking
 
