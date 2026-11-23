@@ -26,6 +26,14 @@
 11. 单个候选翻译调用或检查失败时，保留候选与原因并继续同批其他独立候选和后续批次；每批处理结束后先保存当前输出。全部批次处理后仍有失败时，整体任务报告未完成。
 12. 生成固定命名的 CSV 副本及高频未知词增量工作簿；原 CSV 和参考工作簿保持只读。
 
+## 审核交互契约
+
+- `csv_term_translation` 的 `translate` 操作返回候选输出和待审冲突组；每组带稳定 group ID、相关记录身份、完整审核字段和拟议变更。
+- Agent 必须把同一组全部记录及拟议变更展示给用户，并取得明确的 `same_entity` 或 `different_entities` 决定；embedding 分数或 Agent 自己的判断不算批准。
+- 用户决定后，Agent 调用 `csv_term_translation` 的 `apply_reviews` 操作，提交 group ID、决定和逐行最终译文。`different_entities` 决定须为每条相关记录提供不同译文；`same_entity` 决定须提供用户批准的统一译文。
+- 工具重新校验 group ID 和关联 CSV 记录身份仍处于待审状态后，才将译文与“已批准”写入固定输出 CSV；输入已变化、group 已过期或决定字段不完整时拒绝应用并保留待审核状态。
+- 批准值保存在 CSV 的翻译与状态列中，因此进程重启或重跑后不会要求重复审核未变化记录。
+
 ## Output contract
 
 - CSV：输入所在目录，文件名为原文件名加 _translated 后缀并保留 .csv。
