@@ -17,7 +17,7 @@
 
 ## 2. CSV 读写
 
-**Decision**: 使用 `csv-parse` 和 `csv-stringify`。输入以 UTF-8 解码并显式处理 BOM；解析器负责 CSV 引号、逗号和多行字段。输出只变更 `英文翻译` 与 `审核状态` 列。
+**Decision**: 使用 `csv-parse` 和 `csv-stringify`。输入以 UTF-8 解码并显式处理 BOM；解析器负责 CSV 引号、逗号和多行字段。输出更新 `英文翻译`，并写入逐行 `审核状态` 与 `错误说明`。
 
 **Rationale**: 仓库目前没有 CSV 解析依赖。CSV 格式存在转义和行边界规则，结构化解析比手写逗号切分更可靠。两包采用 MIT 许可，并支持 Node 流式接口；当前 npm registry 元数据版本为 `csv-parse` 7.0.3。
 
@@ -47,7 +47,7 @@
 
 ## 4. 中文分词
 
-**Decision**: 使用 `jieba-wasm` 2.4.0，基于仓库术语表动态构建自定义词典；`伪代码术语=是` 的词项不加入自定义词典。
+**Decision**: 使用 `jieba-wasm` 2.4.0，基于仓库术语表动态构建自定义词典；`伪代码术语=是` 的词项不加入自定义词典。翻译 prompt 和对应的 LLM judge 均按当前候选筛选实际命中的参考条目，只注入相关条目及其属性、备注，不注入整份术语表；翻译模型用其生成译文，judge 用其核对译文。
 
 **Rationale**: 用户明确指定 jieba。WASM 避免原生 addon 在 Windows/macOS/Linux 上编译和 ABI 不一致的安装风险；包提供 `with_dict` 自定义词典入口，满足静态领域词组保留规则。包许可为 MIT，解包约 16.1 MB。
 
@@ -60,7 +60,7 @@
 
 ## 5. Embedding 与相似度
 
-**Decision**: 使用 OpenAI Embeddings API 的 `text-embedding-3-small`，通过 Node 22 内置 `fetch` 调用 `POST /v1/embeddings`；凭据从 `OPENAI_API_KEY` 读取。只对去重后的中文词项请求 embedding，使用余弦相似度；分值 `>= 0.7` 标注为语义相近候选并交给 HITL。
+**Decision**: 使用 OpenAI Embeddings API 的 `text-embedding-3-small`，通过 Node 22 内置 `fetch` 调用 `POST /v1/embeddings`；凭据从 `OPENAI_API_KEY` 读取。TUI 启动翻译任务时自动授权本次任务全部去重中文词项；headless 通过 `-p` 的交互式 TTY 确认回调取得一次明确授权，无 TTY 时拒绝外发并报告未完成。授权覆盖本次任务内的所有 embedding 请求，避免逐请求提示。使用余弦相似度，分值 `>= 0.7` 标注为语义相近候选并交给 HITL。headless 未授权时不发送，相关冲突保留人工审核。
 
 **Rationale**: 用户要求稠密向量语义相似度和 0.7 阈值。TinyCode 当前 `@earendil-works/pi-ai` 提供模型推理，但仓库中没有 embedding 接口；直接 HTTP 请求避免引入额外 SDK。官方文档列出 `text-embedding-3-small`，说明新 embedding 模型具备多语言能力，默认向量长度为 1536。固定模型可以减少跨机器运行结果变化。
 
@@ -69,13 +69,13 @@
 - 将聊天模型输出当作相似度：不产生用户要求的稠密向量评分，无法直接应用 0.7 阈值。
 - 复用 TinyCode 当前模型 provider 的 embedding API：当前 pi-ai 集成中没有可用的 embedding 接口，不能假设聊天模型凭据支持该 endpoint。
 
-**External-data boundary**: embedding 请求包含中文词项，不包含 comment、词条来源、整行 CSV 或术语工作簿备注。需要网络和 API 凭据；失败时不得把冲突静默视为通过或将任务标记为完成。翻译文本仍由用户当前配置的 TinyCode 模型生成。
+**External-data boundary**: 翻译请求可自动发送词条、comment、词条来源及匹配到的术语说明，不逐次确认；不发送无关 CSV 行或无关工作簿内容。Embedding 请求仅包含本次任务的去重中文词项，不包含 comment、词条来源、整行 CSV 或工作簿备注。TUI 在用户启动翻译任务时自动授权该任务，不受通用权限模式或记忆授权影响；headless 通过交互式 TTY 确认一次，拒绝或无交互 TTY 时不发送并报告未完成。两类请求都需要网络；API 失败时不得把冲突静默视为通过或将任务标记为完成。
 
 **Sources**: [OpenAI embeddings guide](https://developers.openai.com/api/docs/guides/embeddings)、`package.json` 和 `src/model/registry.ts`。
 
 ## 6. 输出幂等与审核状态
 
-**Decision**: CSV 输出名固定为输入文件名加 `_translated` 后缀，增量工作簿名固定为输入文件名加 `_translated_glossary_delta` 后缀。两者写入输出目录；写入先生成同目录临时文件，再原子替换固定目标。相同输入记录重跑时复用已批准译文和审核决定，只重算未完成记录。
+**Decision**: CSV 输出名固定为输入文件名加 `_translated` 后缀，增量工作簿名固定为输入文件名加 `_translated_glossary_delta` 后缀。翻译 CSV 包含逐行“审核状态”和“错误说明”；两者写入输出目录；写入先生成同目录临时文件，再原子替换固定目标。相同输入记录重跑时复用已批准译文和审核决定，只重算未完成记录并更新错误说明。
 
 **Rationale**: 固定目标路径避免重试产生重复副本；按数据记录位置及 `词条`、`comment`、`词条来源` 匹配已批准结果，避免模型重试覆盖用户决定。应用层使用 Map 分组和索引，不使用 SQL 或数据库。
 
@@ -85,7 +85,7 @@
 
 ## 7. 测试方式
 
-**Decision**: 用 Vitest 覆盖 CSV 编码/保真、工作簿 sheet 选择、jieba 自定义词典、0.7 阈值、冲突状态、批准后的幂等写入和完成检查；Embedding 请求通过可控 fetch mock 验证。
+**Decision**: 用 Vitest 覆盖 CSV 编码/保真、工作簿 sheet 选择、jieba 自定义词典、0.7 阈值、占位符完整性/顺序、按组聚合的 HITL、冲突状态、批准后的幂等写入和完成检查；模型与 Embedding 请求通过 mock 验证；另覆盖 1000 条批次边界、翻译与 LLM judge 模型调用合计并发上限 10、批次完成后的结果持久化、单候选失败后的继续处理、TUI 自动任务级授权、headless 单次授权及无交互 TTY 时拒绝外发。伪代码术语覆盖率检查应验证全量脚本与 LLM judge；未通过候选保留失败原因、排除在随机抽查之外并阻止整体完成；通过候选按批 5% 向上取整且至少 1 条随机抽查，抽查失败后升级为该批全量 HITL 复核。
 
 **Rationale**: 关键验收行为不依赖外网或真实模型，避免 API 成本和结果非确定性。既有 `npm test`、`npm run typecheck`、`npm run lint`、`npm run build` 可作为实现阶段检查。
 

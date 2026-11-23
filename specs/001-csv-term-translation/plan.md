@@ -1,14 +1,16 @@
 # Implementation Plan: CSV 词条英文翻译与消歧
 
-**Branch**: `001-csv-term-translation` | **Date**: 2026-11-22 | **Spec**: [spec.md](spec.md)
+**Branch**: `feature/csv-term-translation` | **Date**: 2026-11-23 | **Spec**: [spec.md](spec.md)
 
 **Input**: Feature specification from `specs/001-csv-term-translation/spec.md`
 
 ## Summary
 
-在 TinyCode 中提供项目级词条翻译 skill，并通过一组小型 TypeScript 模块完成 CSV/XLSX 读写、jieba 分词、参考术语匹配、相似度检查和结果落盘。翻译仍由当前 TinyCode Agent 模型生成；中文词项的近义词提示使用 OpenAI Embeddings API 的 `text-embedding-3-small`，相似度达到 0.7（含）时进入 HITL。输出始终写回确定名称的 CSV 副本；参考工作簿只读，高频未知词生成独立增量工作簿。
+在 TinyCode 中提供项目级词条翻译 skill，并通过一组小型 TypeScript 模块完成 CSV/XLSX 读写、jieba 分词、参考术语匹配、相似度检查和结果落盘。翻译调用当前 TinyCode 配置的模型，每批最多 1000 条词条，翻译与 LLM judge 的模型调用合计并发上限为 10；每批完成后写入固定 CSV 副本。中文词项的近义词提示使用 OpenAI Embeddings API 的 `text-embedding-3-small`，相似度达到 0.7（含）时进入 HITL。参考工作簿只读，高频未知词生成独立增量工作簿。
 
-Embedding 请求只包含去重后的中文词项；请求使用环境变量 `OPENAI_API_KEY`，不在仓库中保存凭据。该选择需要联网且会将这些中文词项发送至 OpenAI；本规划期间未发起 API 请求。
+翻译模型可自动接收词条、comment、词条来源及匹配到的术语说明，不逐次确认；不发送无关 CSV 行或无关工作簿内容。TUI 启动翻译任务时自动授权该任务全部去重词项的 Embeddings API 请求，无需确认，且授权范围不扩展到其他任务；headless 在交互式 TTY 中通过 CLI 确认回调取得一次授权，无交互 TTY 时拒绝外发并报告未完成。授权行为独立于通用工具 `permissionMode=auto` 和记忆授权，不按 API 请求重复打断用户。翻译冲突按冲突组呈现为单个 HITL 审核事项，汇总所有相关记录和拟议变更。Embedding 请求使用环境变量 `OPENAI_API_KEY`，不在仓库中保存凭据。
+
+标记为“伪代码术语”的参考项不进入 jieba 自定义词典；翻译调用及对应的 LLM judge 仅收到当前候选实际命中的参考条目和相关属性、备注，不把整份词典或无关条目作为通用约束。所有相关候选依次接受全量脚本检查和全量 LLM judge 检查；未通过者保留失败草稿及原因、不进入抽样，但系统继续处理同批独立候选和后续批次，最终任务保持未完成。每批通过前两层的候选随机抽查 5%（向上取整且至少 1 条）；抽查发现违反参考备注的候选时，该批所有伪代码术语候选升级为 HITL 全批复核。
 
 ## Technical Context
 
@@ -16,19 +18,21 @@ Embedding 请求只包含去重后的中文词项；请求使用环境变量 `OP
 
 **Primary Dependencies**: 复用 `@earendil-works/pi-agent-core` 和 `@earendil-works/pi-ai`；新增 `csv-parse`、`csv-stringify`、`exceljs`、`jieba-wasm`。Embedding 使用 Node 22 内置 `fetch` 调用 OpenAI API，不新增 SDK。
 
-**Storage**: 本地 UTF-8 CSV、仓库版本化 XLSX、输出 CSV 和增量 XLSX；不使用数据库。
+**Storage**: 本地 UTF-8 CSV、仓库版本化 XLSX、翻译输出 CSV（含逐行审核状态和错误说明）及增量 XLSX；不使用数据库。
 
-**Testing**: Vitest；Embedding HTTP 请求用 mock fetch，文件和工作簿使用确定性 fixture，不依赖网络。
+**Testing**: Vitest；模型和 Embedding HTTP 请求使用 mock，文件和工作簿使用确定性 fixture，不依赖网络；覆盖每批 1000 条边界、翻译与 judge 模型调用合计并发上限 10、批次落盘、TUI 自动任务级授权、headless 确认/无 TTY 拒绝、冲突组审核聚合，以及伪代码术语候选的全量脚本检查、全量 LLM judge、按批随机抽查和抽查失败后的全批复核。
+
+所有英文译文还需执行占位符脚本检查：花括号占位符保持原文、数量和原序；编号百分号占位符保持标识、格式和数量但允许重排。校验失败记录原因并阻止任务完成。
 
 **Target Platform**: 支持 Node.js 22.19+ 的 Windows、macOS 和 Linux。
 
 **Project Type**: TinyCode 项目级 skill 加 TypeScript AgentTool/文件处理模块。
 
-**Performance Goals**: 单用户批处理，无在线服务 SLA。按词项去重后批量请求 embedding，仅在候选译文冲突组内比较向量；不建立数据库或执行 SQL 连表。
+**Performance Goals**: 单用户批处理，无在线服务 SLA。每批最多 1000 条词条，同时进行的翻译与 LLM judge 模型请求合计不超过 10 个；完成一批后先持久化结果。Embedding 按请求去重词项，仅在候选译文冲突组内比较向量；不建立数据库或执行 SQL 连表。
 
-**Constraints**: 每次处理一个 CSV；接受 UTF-8 BOM，拒绝无效 UTF-8；固定英文为目标语言；只读仓库内参考工作簿；CSV 输出名确定；任何翻译冲突都进入人工审核；Embedding API 凭据仅从环境变量读取。
+**Constraints**: 每次处理一个 CSV；每批最多 1000 条且翻译与 LLM judge 模型调用合计并发上限为 10；批次完成后写入固定输出；接受 UTF-8 BOM，拒绝无效 UTF-8；固定英文为目标语言；只读仓库内参考工作簿；任何翻译冲突都进入人工审核并按冲突组汇总；Embedding API 凭据仅从环境变量读取，TUI 使用任务级自动授权，headless 需显式任务级确认。
 
-**Scale/Scope**: 处理用户指定的单个词条 CSV；规格未限定最大行数。输入来自词条抽取结果，模型交互按当前 Agent 上下文工作；不引入服务端、账户系统或数据库。
+**Scale/Scope**: 处理用户指定的单个词条 CSV；每批最多 1000 条，超过时拆批；词条长度由上游导入的数据类型限制，本功能不另设长度上限。工作流通过 bootstrap 注入的当前 model 和 streamFn 发起翻译与 LLM judge 调用，同一时刻的模型调用合计最多 10 路，不为每条记录创建子 Agent。TUI 自动授予当前任务的 Embeddings 外发权限；headless 由 `-p` 的交互式 TTY 确认回调处理，无 TTY 时拒绝外发并报告未完成。HITL 按关联冲突组汇总，不逐条重复询问。不引入服务端、账户系统或数据库。
 
 ## Constitution Check
 
@@ -67,8 +71,11 @@ Embedding 请求只包含去重后的中文词项；请求使用环境变量 `OP
     ├── glossary.ts              # 指定 XLSX sheet 读取与应用层索引
     ├── translation.ts           # jieba 分词、术语候选与 embedding 相似度
     ├── workflow.ts              # 单次翻译流程、HITL 汇总与完成检查
+    ├── consent.ts               # 任务级 Embedding 外发授权契约
     └── tool.ts                  # TinyCode AgentTool 适配
-    src/bootstrap.ts             # 注册词条翻译工具
+    src/bootstrap.ts             # 注册词条翻译工具并注入当前 model/streamFn/确认回调
+    src/tui/external-data-consent.ts # 启动翻译任务时自动授权一次
+    src/cli/external-data-consent.ts # -p 模式 TTY 确认回调，提示写 stderr、答案读 stdin
     assets/glossary/常用注意要点清单.xlsx
     tests/term-translation/
     ├── csv.test.ts
@@ -76,7 +83,7 @@ Embedding 请求只包含去重后的中文词项；请求使用环境变量 `OP
     ├── translation.test.ts
     └── workflow.test.ts
 
-**Structure Decision**: 复用仓库现有的 TinyCode 项目级技能发现机制，产品技能说明由 `.tinycode/skills/csv-term-translation/SKILL.md` 提供；当前会话续作记录保存在 `.tinycode/skills/csv-term-translation-handoff/SKILL.md`。文件操作与确定性业务规则集中在 `src/term-translation/`，通过单个 AgentTool 进入现有 Agent 循环。参考资产沿用已入库的 `assets/glossary/`。不修改通用 Agent runtime、权限策略或 session 格式。
+**Structure Decision**: 复用仓库现有的 TinyCode 项目级技能发现机制，产品技能说明由 `.tinycode/skills/csv-term-translation/SKILL.md` 提供；当前会话续作记录保存在 `.tinycode/skills/csv-term-translation-handoff/SKILL.md`。文件操作与确定性业务规则集中在 `src/term-translation/`，通过单个 AgentTool 进入现有 Agent 循环。bootstrap 将当前 model、streamFn 和任务级 consent callback 注入工作流，由工作流按每批 1000 条处理；翻译与 LLM judge 模型调用共享并发上限 10，完成一批后保存结果；不创建子 Agent。伪代码术语约束由翻译流程将匹配属性和备注传入模型，并在 `workflow.ts` 编排全量脚本检查、全量 LLM judge、批内随机 HITL 抽查及抽查失败后的整批复核。TUI callback 在用户启动翻译任务后自动授权该任务全部 Embeddings 请求；`-p` headless callback 仅在交互式 TTY 中通过一次明确确认授权，无 TTY 时拒绝并报告未完成。授权不复用通用工具权限或记忆授权，也不按 Embeddings API 请求逐次提示。冲突审核按冲突组聚合。参考资产沿用已入库的 `assets/glossary/`；不修改通用 Agent runtime、通用权限策略或 session 格式。
 
 ## Constitution Check (Post-Design)
 
