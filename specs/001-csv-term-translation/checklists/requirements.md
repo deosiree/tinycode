@@ -1,40 +1,47 @@
-# Specification Quality Checklist: CSV 词条英文翻译与消歧
+# 规格质量检查清单：CSV 词条英文翻译与消歧
 
-**Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-11-22
-**Feature**: [spec.md](../spec.md)
+**用途**：在进入计划阶段前检查规格的完整性与质量
+**创建日期**：2026-11-22
+**功能规格**：[spec.md](../spec.md)
 
-## Content Quality
+## 内容质量
 
-- [x] No implementation details (languages, frameworks, APIs)
-- [x] Focused on user value and business needs
-- [x] Written for non-technical stakeholders
-- [x] All mandatory sections completed
+- [x] 不包含实现细节（语言、框架、API）
+- [x] 聚焦用户价值和业务需求
+- [x] 面向非技术读者撰写
+- [x] 已完成所有必需章节
 
-## Requirement Completeness
+## 需求完整性
 
-- [x] No [NEEDS CLARIFICATION] markers remain
-- [x] Requirements are testable and unambiguous
-- [x] Success criteria are measurable
-- [x] Success criteria are technology-agnostic (no implementation details)
-- [x] All acceptance scenarios are defined
-- [x] Edge cases are identified
-- [x] Scope is clearly bounded
-- [x] Dependencies and assumptions identified
+- [x] 没有遗留 `[NEEDS CLARIFICATION]` 标记
+- [x] 需求可测试且表述明确
+- [x] 成功标准可衡量
+- [x] 成功标准不依赖特定技术或实现细节
+- [x] 已定义所有验收场景
+- [x] 已识别边界情况
+- [x] 范围界定清楚
+- [x] 已识别依赖和假设
 
-## Feature Readiness
+## 功能就绪度
 
-- [x] All functional requirements have clear acceptance criteria
-- [x] User scenarios cover primary flows
-- [x] Feature meets measurable outcomes defined in Success Criteria
-- [x] No implementation details leak into specification
+- [x] 所有功能需求都有明确的验收标准
+- [x] 用户场景覆盖主要流程
+- [x] 功能满足成功标准中定义的可衡量结果
+- [x] 规格中没有实现细节
 
-## Notes
+## 备注
 
-- User confirmed the CSV headers (`词条`, `comment`, `词条来源`), the existing `翻译简写说明` sheet, and a high-frequency threshold of at least 3 occurrences per word/comment pair in the input CSV.
-- Similarity clarification: compare Chinese terms with dense-vector embeddings; scores >= 0.7 identify semantically related synonym candidates for HITL, while lower scores recommend distinct translations. Every collision remains subject to human review, and similarity never approves or changes a translation automatically.
-- Clarifications confirmed: draft CSVs include candidate translations and a per-row `审核状态` column; it tracks translation review only, while the glossary delta is reviewed separately after CSV completion.
-- User confirmed full-entry matching first; otherwise use jieba to segment Chinese, reuse applicable word-level translations, and compose natural English using comment/context without assuming the source is a grammatical Chinese sentence.
-- User confirmed: add applicable static Chinese glossary terms to jieba's custom dictionary, but exclude terms marked `伪代码术语=是`; use their remarks, comment, and scenario to determine the contextual translation (for example, `xxx配置` may become `Platform Tool` in a column-name context).
-- User confirmed row-level review aggregation: if any segmented word in a CSV row requires HITL, the whole row is `待审核`; mark it `已批准` after all related review decisions are completed and approved.
-- Reference workbook is included as the versioned repository asset `assets/glossary/常用注意要点清单.xlsx`; runtime reads it relative to the repository root and does not modify it.
+- 用户确认 CSV 表头为（`词条`、`comment`、`词条来源`），使用项目提供的参考资料，并将输入 CSV 中相同词语与 comment 组合出现至少 3 次作为高频门槛。
+- 相似度规则：分数大于等于 0.7 时标记为语义相关的近义词候选，交由人工审核；低于 0.7 时建议使用不同译法。所有冲突仍须人工审核，相似度不得自动批准或修改译文。
+- 已确认草稿 CSV 包含候选译文及逐行的“审核状态”列；该列只跟踪译文审核，术语增量资料在 CSV 完成后单独审核。
+- 用户确认优先匹配完整词条；否则复用适用的词级译法，并结合 comment 和上下文组织自然英文，不假设原文是符合中文语法的完整句子。
+- 用户确认静态术语保持适用词组和译法一致；标记为 `伪代码术语=是` 的词条依赖语境，其属性、尤其备注，只影响实际匹配到该词条的翻译（例如，在列名语境中，`xxx配置` 可译为 `Platform Tool`）。相关候选须自动检查并接受人工抽查。
+- 用户确认每批通过自动检查的伪代码术语候选随机抽查 5%，至少 1 条；若抽查发现译文不符合参考备注，则将该批所有伪代码术语候选扩展为人工复核。
+- 用户确认自动检查未通过的伪代码术语候选保留为失败草稿并记录失败原因，任务标记未完成；该类候选不自动批准，也不进入随机抽查。
+- 用户确认伪代码术语属性和备注只影响当前词条实际匹配到的参考项；翻译及复核均不使用整份术语表或无关条目。
+- 用户确认对所有词条检查占位符：花括号占位符保留原文和原序，编号百分号占位符保留标识、格式和数量但允许重排；缺失或损坏时记录失败原因并阻止完成。
+- 用户确认个别候选或批次失败后保留失败项和原因，继续处理同批其他独立候选及后续批次；所有批次完成后仍有失败则整体未完成。
+- 用户确认失败原因逐行写入输出 CSV 的“错误说明”列；无失败时留空，不生成独立错误报告。
+- 用户确认按 CSV 行汇总审核状态：任一组成词需要人工审核时，整行标记为`待审核`；所有相关审核结论完成并批准后，标记为`已批准`。
+- 外部数据使用规则：交互界面启动任务时自动允许本任务使用相关去重词项，不弹确认；命令行运行时确认一次，无法确认时不外发。同一冲突组的记录归并为一个审核事项，不相关冲突保持分开。
+- 参考工作簿随项目版本化维护；运行时只读，不修改该文件。
