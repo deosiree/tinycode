@@ -60,7 +60,7 @@
 
 ## 5. Embedding 与相似度
 
-**Decision**: 使用 OpenAI Embeddings API 的 `text-embedding-3-small`，通过 Node 22 内置 `fetch` 调用 `POST /v1/embeddings`；凭据从 `OPENAI_API_KEY` 读取。TUI 启动翻译任务时自动授权本次任务全部去重中文词项；headless 通过 `-p` 的交互式 TTY 确认回调取得一次明确授权，无 TTY 时拒绝外发并报告未完成。授权覆盖本次任务内的所有 embedding 请求，避免逐请求提示。使用余弦相似度，分值 `>= 0.7` 标注为语义相近候选并交给 HITL。headless 未授权时不发送，相关冲突保留人工审核。
+**Decision**: 使用 OpenAI Embeddings API 的 `text-embedding-3-small`，通过 Node 22 内置 `fetch` 调用 `POST /v1/embeddings`；凭据从 `OPENAI_API_KEY` 读取。记忆 search query 使用当前词项及必要 comment/场景，冲突相似度只使用去重中文词项；TUI 启动翻译任务时自动授权本次任务所需的全部 query 文本，headless 通过 `-p` 的交互式 TTY 确认一次。每次 add 若需要外发尚未索引的参考文档内容，则在发送前对该次操作另行取得一次明确授权；同来源、同内容已索引时本地幂等跳过，不请求授权或外发。内置基线首次 add 同样遵循该规则。使用余弦相似度，分值 `>= 0.7` 标注为语义相近候选并交给 HITL。
 
 **Rationale**: 用户要求稠密向量语义相似度和 0.7 阈值。TinyCode 当前 `@earendil-works/pi-ai` 提供模型推理，但仓库中没有 embedding 接口；直接 HTTP 请求避免引入额外 SDK。官方文档列出 `text-embedding-3-small`，说明新 embedding 模型具备多语言能力，默认向量长度为 1536。固定模型可以减少跨机器运行结果变化。
 
@@ -69,7 +69,7 @@
 - 将聊天模型输出当作相似度：不产生用户要求的稠密向量评分，无法直接应用 0.7 阈值。
 - 复用 TinyCode 当前模型 provider 的 embedding API：当前 pi-ai 集成中没有可用的 embedding 接口，不能假设聊天模型凭据支持该 endpoint。
 
-**External-data boundary**: 翻译请求可自动发送词条、comment、词条来源及匹配到的术语说明，不逐次确认；不发送无关 CSV 行或无关工作簿内容。Embedding 请求仅包含本次任务的去重中文词项，不包含 comment、词条来源、整行 CSV 或工作簿备注。TUI 在用户启动翻译任务时自动授权该任务，不受通用权限模式或记忆授权影响；headless 通过交互式 TTY 确认一次，拒绝或无交互 TTY 时不发送并报告未完成。两类请求都需要网络；API 失败时不得把冲突静默视为通过或将任务标记为完成。
+**External-data boundary**: 翻译请求可接收当前词条、comment、词条来源及本地 search 返回的最多 5 条相关术语，不接收整份工作簿、整份记忆库或无关 CSV 行。每次 add 只在存在需新建或更新索引、且需外发的内容时，于发送前对该次操作授权一次；相同来源和内容已索引时直接本地跳过，不授权、不外发。记忆 search 只发送当前词项及必要 comment/场景，冲突比较只发送本次任务所需的去重中文词项；TUI 沿用任务级自动授权，headless 通过交互式 TTY 确认一次。授权拒绝或 API 失败时不得静默跳过索引/检索或将任务标记为完成。
 
 **Sources**: [OpenAI embeddings guide](https://developers.openai.com/api/docs/guides/embeddings)、`package.json` 和 `src/model/registry.ts`。
 
@@ -77,7 +77,7 @@
 
 **Decision**: CSV 输出名固定为输入文件名加 `_translated` 后缀，增量工作簿名固定为输入文件名加 `_translated_glossary_delta` 后缀。翻译 CSV 包含逐行“审核状态”和“错误说明”；两者写入输出目录；写入先生成同目录临时文件，再原子替换固定目标。相同输入记录重跑时复用已批准译文和审核决定，只重算未完成记录并更新错误说明。
 
-**Rationale**: 固定目标路径避免重试产生重复副本；按数据记录位置及 `词条`、`comment`、`词条来源` 匹配已批准结果，避免模型重试覆盖用户决定。应用层使用 Map 分组和索引，不使用 SQL 或数据库。
+**Rationale**: 固定目标路径避免重试产生重复副本；按数据记录位置及 `词条`、`comment`、`词条来源` 匹配已批准结果，避免模型重试覆盖用户决定。翻译输出与长期参考记忆职责分离，用户提交的参考资料按独立来源身份写入本地向量数据库。
 
 **Alternatives considered**:
 - 每次生成带时间戳的新文件：重试不幂等，用户难以判断权威输出。
@@ -90,3 +90,26 @@
 **Rationale**: 关键验收行为不依赖外网或真实模型，避免 API 成本和结果非确定性。既有 `npm test`、`npm run typecheck`、`npm run lint`、`npm run build` 可作为实现阶段检查。
 
 **Sources**: `package.json`、`vitest.config.ts`、`tests/`。
+
+## 8. 本地向量记忆
+
+**Decision**: 使用 Mem0 OSS TypeScript SDK（`mem0ai/oss`）提供通用记忆 add/search，连接仅绑定 loopback 的本机 Qdrant 服务。通过 `url: http://127.0.0.1:6333` 使用 Qdrant REST API；Qdrant 服务将数据持久化到 `dataHome()/memory/csv-term-translation/qdrant/storage`，项目级来源清单保存在 `dataHome()/memory/csv-term-translation/projects/<project-key>/source-manifest.json`。使用 SDK 的 `infer: false` 写入解析后的术语片段，不把术语资料交给记忆提取 LLM 改写；所有 add/search 使用稳定项目标识作为 `userId`，并使用项目专属 collection 隔离。记忆片段携带来源 ID、来源 SHA-256、sheet/行定位、chunk ID、Embedding 模型版本和 active-version key。Mem0/Qdrant 负责向量存储、Embedding 和语义检索；TinyCode 适配层只负责工作簿解析、授权、来源幂等和版本清单。
+
+来源清单保存在 TinyCode 用户数据目录。相同来源和 SHA-256 重复 add 时不调用 Mem0，不外发；更新时先将新版本片段写入带新 active-version key 的记录，全部成功后原子更新清单，旧版本继续保留以便回滚。search 从清单读取当前有效 key 集合，通过 Mem0 元数据过滤限制检索范围，再最多返回 5 条结果。更新中断时新 key 尚未发布，不会进入检索；旧版本继续有效。用户可按来源软删除并从 search 排除其全部版本，也可选择保留版本恢复/回滚为 active；这些操作仅原子更新本地来源清单，不物理删除向量。每条翻译和 LLM judge 调用前都使用当前词条及 comment 执行 search，并附来源定位。数据库初始化、search 或 add 失败时，不得绕过记忆继续调用模型。待翻译 CSV 和未审核机器译文不会自动进入长期记忆。
+
+**Rationale**: 用户希望 agent 能通过持续 add/search 累积参考资料，同时不把通用记忆引擎的存储、Embedding 和语义检索重复造一遍。Mem0 OSS 提供应用内 SDK，但其 TypeScript Qdrant provider 依赖 `@qdrant/js-client-rest`；Mem0 provider 虽接受 `path` 并把它传给 client，Qdrant REST client 并不支持嵌入式存储路径，所以不能据此承诺免服务的本机持久化。使用只监听 loopback 的本机 Qdrant 服务并将服务存储目录放入 TinyCode 用户数据目录，可保留所有向量数据本地化，同时继续复用 Mem0 add/search。Mem0 SDK telemetry 默认开启，须在动态导入 SDK 前设置 `MEM0_TELEMETRY=false`；Qdrant 服务 telemetry 也须通过 `QDRANT__TELEMETRY_DISABLED=true` 关闭。
+
+**适配约束**:
+- 固定并验证 `mem0ai`、`@qdrant/js-client-rest` 和本机 Qdrant 服务版本；确认 Windows/macOS/Linux 上 loopback REST 连接、服务数据目录重启持久化、`infer: false`、top-k 和元数据 `in` filter 行为。
+- add 使用原文模式，并将稳定项目标识通过顶层 `userId` 传入；来源版本等字段放 metadata。不要只在 filters 中传 entity ID。
+- Mem0 只接收 add 文档经授权后生成 Embedding 所需的文本；不启用提取 LLM、托管 Mem0 API 或远程向量数据库。加载 SDK 前关闭 Mem0 telemetry，本机 Qdrant 服务关闭 telemetry，并验证运行中无未声明的遥测请求。
+- 来源版本由 TinyCode 清单控制；search 必须在向模型提供结果前套用 active-version 过滤并截断为 5 条。
+- 软删除与版本恢复由来源清单状态及 active-version 指针控制；不得物理清除保留向量，且操作失败时必须保留原有检索状态。
+
+**Alternatives considered**:
+- 自建 LanceDB add/search 层：虽可直接控制记录和过滤，但会重复实现 Embedding、向量检索、provider 配置及其错误处理；保留为 Mem0 OSS 不满足持久化/过滤契约时的备选，不作为当前首选。
+- Mem0 托管平台或远程 Mem0/Qdrant 服务：与本功能的本机数据驻留和不增加远程服务依赖要求不符。
+- Mem0 TypeScript Qdrant provider 的嵌入式 `path` 模式：provider 将 `path` 传给 REST client，而 REST client 不支持本地嵌入式存储；采用 loopback Qdrant 服务满足本地持久化要求。
+- 仅将 Embedding JSON 写入文件：不具备成熟的向量检索能力。
+
+**Sources**: [Mem0 OSS Node SDK Quickstart](https://docs.mem0.ai/open-source/node-quickstart)、[Mem0 OSS configuration](https://docs.mem0.ai/open-source/configuration)、[Mem0 Qdrant provider source](https://github.com/mem0ai/mem0/blob/main/mem0-ts/src/oss/src/vector_stores/qdrant.ts)、[Qdrant JavaScript REST client](https://github.com/qdrant/qdrant-js)、[Qdrant local quickstart](https://qdrant.tech/documentation/quickstart/)、[Qdrant security](https://qdrant.tech/documentation/security/)、[Qdrant usage statistics](https://qdrant.tech/documentation/guides/usage-statistics/)、[Mem0 OSS telemetry source](https://github.com/mem0ai/mem0/blob/main/mem0-ts/src/oss/src/utils/telemetry.ts)、[Mem0 add memory](https://docs.mem0.ai/core-concepts/memory-operations/add)、[Mem0 OSS metadata filtering](https://docs.mem0.ai/open-source/features/metadata-filtering)。
