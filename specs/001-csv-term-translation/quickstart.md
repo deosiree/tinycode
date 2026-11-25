@@ -7,7 +7,7 @@
 - Node.js 22.19 或更高版本。
 - 在仓库根目录执行 npm ci。
 - 翻译 skill 使用当前 TinyCode Agent 模型。
-- 本地参考记忆由 Mem0 OSS SDK 管理；本机 Qdrant 服务仅监听 `127.0.0.1:6333`，数据目录持久映射到 `dataHome()/memory/csv-term-translation/qdrant/storage`。Qdrant 服务需设置 `QDRANT__TELEMETRY_DISABLED=true`；Mem0 telemetry 在 SDK 加载前关闭。记忆不会进入 Git。
+- 本地参考记忆由 Mem0 OSS SDK 管理；本机 Qdrant 服务仅监听 `127.0.0.1:6333`。Windows 上 Qdrant 数据使用 Docker named volume（暂定名 `tinycode-csv-term-translation-qdrant`），来源清单位于 `dataHome()/memory/csv-term-translation/projects/<project-key>/source-manifest.json`；两处数据须配对备份/恢复。macOS/Linux 的 Qdrant `dataHome()` 挂载方式完成平台验证前不视为已验收。Qdrant 服务需设置 `QDRANT__TELEMETRY_DISABLED=true`；Mem0 telemetry 在 SDK 加载前关闭。记忆不会进入 Git。
 - 首次运行时，内置工作簿会 add 到本地记忆；首次 add 若需发送内容以建立向量索引，会先请求一次授权。额外参考工作簿同样如此；已导入的相同来源和内容再次提交时本地跳过，不请求授权或外发。
 - 翻译和 LLM judge 请求前会先 search 本地记忆，只发送当前记录和最多 5 条检索命中，不发送无关 CSV 行或完整记忆库。
 - 参考记忆及冲突近义词提示使用 OpenAI Embeddings API；通过环境变量设置 OPENAI_API_KEY。不要把密钥写入仓库。
@@ -19,7 +19,7 @@
 
         npm run dev
 
-2. 启动本机 Qdrant 服务并确认仅监听 `127.0.0.1:6333`、服务存储目录映射到 TinyCode 用户数据目录且 telemetry 已关闭。将用户自己的参考资料作为本 skill 输入时，工作流自动调用 `add_reference_material`；若该次 add 有尚未索引的内容需要发送给 Embedding 服务，先确认外发范围并授权一次。重复提交已导入的相同来源和内容时本地跳过，无需授权或外发；更新文件后新版本取代旧版本。
+2. 启动本机 Qdrant 服务并确认仅监听 `127.0.0.1:6333` 且 telemetry 已关闭。Windows 使用 Docker named volume 保存 Qdrant storage，不使用 Windows 主机目录 bind mount；macOS/Linux 按经验证的 `dataHome()` 配置运行。将用户自己的参考资料作为本 skill 输入时，工作流自动调用 `add_reference_material`；若该次 add 有尚未索引的内容需要发送给 Embedding 服务，先确认外发范围并授权一次。重复提交已导入的相同来源和内容时本地跳过，无需授权或外发；更新文件后新版本取代旧版本。
 3. 提供一个包含词条、comment、词条来源、英文翻译列的 UTF-8 CSV 路径，并要求使用 csv-term-translation skill。首次运行会先将版本化初始工作簿 add 到本地记忆；若需发送尚未索引的内容，会先请求该次 add 的授权，完成后才进行翻译。
 4. 检查 Agent 的预检结果：目标语言为英文，每条输入和每次 judge 调用都先 search，检索上下文最多 5 条且带来源定位；输入文件和参考工作簿未被修改。TUI 启动翻译任务后自动授权本次任务所需的 search query 文本（词项及必要 comment/场景）与相似度查询词 Embeddings 请求；headless `-p` 在交互式 TTY 中通过确认回调提示一次。无交互 TTY 时不得发出请求并应报告未完成。
 5. 对待审核项检查字段：单词、comment、词条来源、翻译、翻译描述、使用场景、utf-8的字节长度、字符长度。
@@ -30,9 +30,15 @@
 10. 使用包含 `{}`、`{:.3f}`、`%1` 和 `%2` 的词条验收占位符保护：花括号占位符保持原文、数量及顺序；编号百分号占位符保持标识、格式及数量但可重排。模拟缺失、损坏或重复占位符，确认候选保留失败原因且任务未完成。
 11. 模拟同批单个候选及一个模型批次调用失败，确认失败候选和原因写入对应行的“错误说明”，同批其他独立候选与后续批次继续处理、每批结果仍落盘，最后整体任务标记未完成。
 
+## Persistence and backup
+
+- Windows 的 Qdrant named volume（暂定名 `tinycode-csv-term-translation-qdrant`）与 `dataHome()` 中的项目来源清单共同构成记忆数据集。停止 TinyCode 和 Qdrant 的写入后，在同一备份集中保存两处数据并一并恢复；只恢复其中一处可能使 active-version 指针与向量记录不一致。
+- 普通容器停止或移除不应删除 named volume；显式移除该 volume 会删除向量数据。备份与恢复命令须在 I-21/I-22 按实际 Docker/Qdrant 版本验证后写入最终用户指南。
+- macOS/Linux 的 `dataHome()` Qdrant 挂载和相应备份命令须逐平台验证；未实测的平台标记为 `not-run`。
+
 ## Deterministic checks
 
-使用本地 fixture、loopback Qdrant 服务及其临时持久目录和模型/Embedding mock，不调用真实模型或 Embeddings API：
+使用本地 fixture、loopback Qdrant 服务及隔离的临时持久存储和模型/Embedding mock，不调用真实模型或 Embeddings API。Windows 集成验收另验证 named volume 容器重建后数据保留，以及 Qdrant volume 与来源清单配对备份/恢复；其他平台只报告实际运行结果：
 
     npm test -- tests/term-translation
     npm run typecheck

@@ -43,7 +43,7 @@
 ### 参考记忆条目与导入
 
 - 参考记忆条目字段：稳定条目 ID、source ID、来源文件名、来源 SHA-256、sheet 名、行号、中文词项、英文译法、comment/场景、属性/备注、Embedding 模型版本、向量。
-- 记忆库位置：本机 Qdrant 服务数据目录为 `dataHome()/memory/csv-term-translation/qdrant/storage`；服务只监听 loopback，Mem0 TypeScript SDK 通过 `http://127.0.0.1:6333` 访问。项目 collection 按稳定 `project-key` 隔离；来源清单位于 `dataHome()/memory/csv-term-translation/projects/<project-key>/source-manifest.json`，记录来源状态、保留版本及 active-version 指针。数据不进入仓库版本控制。
+- 记忆库位置：Qdrant 服务只监听 loopback，Mem0 TypeScript SDK 通过 `http://127.0.0.1:6333` 访问。Windows 上 Qdrant 数据存入 Docker named volume（暂定名 `tinycode-csv-term-translation-qdrant`），来源清单位于 `dataHome()/memory/csv-term-translation/projects/<project-key>/source-manifest.json`，记录来源状态、保留版本及 active-version 指针；备份/恢复须在停止写入后将两处数据作为同一数据集配对处理。macOS/Linux 暂用 `dataHome()/memory/csv-term-translation/qdrant/storage` 挂载 Qdrant 数据，逐平台验证前不声明该方案已受支持。数据不进入仓库版本控制。
 - add 输入：仓库版本化的初始 XLSX，或用户明确提交的同格式 XLSX 参考工作簿。翻译 CSV、翻译结果和未审核候选不自动 add。
 - 身份与幂等：Mem0 条目 metadata 带 `source ID + source SHA-256 + chunk ID + active-version key`；来源清单记录每个 source 的保留版本、状态和 active key。同来源同内容跳过；更新时先完整解析并通过 Mem0 写入新版本，再原子切换清单中的 active key，旧版本保留。search 将当前 key 集合传入 Mem0 元数据过滤，只返回未软删除来源的 active version；切换失败时旧版本继续可见，新版本不可见。
 - Mem0 适配：通过 `mem0ai/oss` 的 `Memory` 调用 add/search；add 使用 `infer: false` 保存原始术语片段，不运行记忆提取 LLM。Qdrant 配置使用 loopback `url` 和项目 collection，不使用 TypeScript REST client 不支持的嵌入式 `path`；每次 add/search 用稳定 `userId` 隔离项目。动态加载 SDK 前关闭 Mem0 telemetry，并关闭 Qdrant 服务 telemetry。

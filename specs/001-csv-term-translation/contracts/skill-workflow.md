@@ -7,7 +7,7 @@
 - 用户不必每次提供参考工作簿；首次运行将仓库内 assets/glossary/常用注意要点清单.xlsx add 到本地持久向量记忆。用户在此 skill 中将其他同格式 XLSX 作为参考资料提交时，工作流自动执行 add 和内容去重，无需额外发出 add 命令。
 - 用户通过专用 `add_reference_material` AgentTool 明确提交参考文件；仅当本次 add 需要外发尚未索引的新内容或更新内容时，说明来源文件名和外发范围并请求一次授权。同来源、同内容重复提交时本地跳过，不请求授权或外发。
 - 用户可通过 `manage_reference_memory` AgentTool 按来源软删除记忆，或恢复/回滚到该来源的任一保留版本；软删除来源从后续 search 排除，但本机保留其完整版本历史。
-- 记忆由 Mem0 OSS TypeScript SDK 管理，连接仅监听 loopback 的本机 Qdrant 服务；服务数据持久化在 TinyCode 用户数据目录，项目以 collection、`userId` 和来源清单隔离。Mem0 SDK 与 Qdrant 服务 telemetry 均关闭；额外导入的资料不自动同步到其他机器。
+- 记忆由 Mem0 OSS TypeScript SDK 管理，连接仅监听 loopback 的本机 Qdrant 服务；Windows 上向量数据持久化在 Docker named volume，项目来源清单仍位于 TinyCode `dataHome()`，两处数据须配对备份/恢复。macOS/Linux 的 `dataHome()` Qdrant 挂载须经平台验证。项目以 collection、`userId` 和来源清单隔离。Mem0 SDK 与 Qdrant 服务 telemetry 均关闭；额外导入的资料不自动同步到其他机器。
 - 翻译 CSV 与未审核机器译文是任务数据，不自动 add 为长期参考记忆。
 - 输入 CSV 必须有词条、comment、词条来源、英文翻译列。系统不得猜测缺失列。
 
@@ -73,7 +73,7 @@
 
 ## Memory add/search boundary
 
-- add/search 使用 Mem0 OSS SDK；add 采用原文模式，不启用记忆提取 LLM。Qdrant 使用 loopback REST endpoint；本机服务须将数据持久化在 TinyCode 用户数据目录、按项目 collection 隔离并关闭自身 telemetry。Mem0 SDK telemetry 在动态加载前关闭；记忆文件不进项目版本控制。
+- add/search 使用 Mem0 OSS SDK；add 采用原文模式，不启用记忆提取 LLM。Qdrant 使用 loopback REST endpoint 并按项目 collection 隔离。Windows 上服务 storage 使用 Docker named volume，来源版本清单写入 TinyCode `dataHome()`；停止写入后须将两处存储成对备份/恢复，显式删除 named volume 会丢失向量数据。macOS/Linux 的 `dataHome()` 挂载配置需平台验证。Qdrant 服务 telemetry 和 Mem0 SDK telemetry（在动态加载前关闭）均关闭；记忆文件不进项目版本控制。
 - 首次翻译时将随项目提供的 XLSX add 为基线；用户提交参考 XLSX 时显式 add。每次 add 仅在需要外发尚未索引的新内容或更新内容时，于发送前取得一次授权；重复且内容未变化时本地跳过，不请求授权或发送内容。
 - 使用 `source ID + SHA-256 + chunk ID` 幂等；同来源同内容不重复写入。更新时先完整写入新 source version，再原子切换该来源的 active version 指针；search 只检索 active version。切换前失败保留旧版，未完成的新版本不被检索。
 - 用户明确要求移除来源时，将来源标记为软删除并排除其全部版本的 search 命中；保留的旧版本可由用户选定并原子恢复为 active，供撤回或回滚。删除、恢复和回滚只改本地来源清单，不调用 Embedding API；操作失败时保留原状态。

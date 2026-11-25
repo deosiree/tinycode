@@ -51,4 +51,4 @@
 - 来源可按请求软删除并从 search 排除；历史版本保留在本机，用户可恢复或回滚到指定版本。
 - add 外发文档 Embedding 单次授权与翻译任务 query Embedding 授权分开；待翻译 CSV 和未审核机器译文不自动进入长期记忆。
 - add 仅在需要外发尚未索引的新内容或更新内容时，于发送前请求一次授权；同来源、同内容重复提交本地跳过，不请求授权或外发。
-- Mem0 OSS 使用 `infer: false`，通过 loopback REST 连接本机持久 Qdrant 服务；Mem0 SDK 与 Qdrant 服务 telemetry 均关闭。
+- Mem0 OSS 使用 `infer: false`，通过 loopback REST 连接本机持久 Qdrant 服务；Mem0 SDK 与 Qdrant 服务 telemetry 均关闭。Windows 使用 Docker named volume 保存 Qdrant 向量数据，来源清单保存于 TinyCode 用户数据目录，备份与恢复覆盖两处数据；macOS/Linux 用户目录挂载未验证前不宣称已支持。
