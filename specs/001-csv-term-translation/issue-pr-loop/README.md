@@ -2,7 +2,7 @@
 
 ## 状态
 
-- `goal.md` 和 `issue-graph.md` 是待用户审阅的草稿，尚未批准为开发基线；用户已决定暂缓该 CSV 业务 Goal，当前学习主线转为 TinyCode 通用 Agent Harness。GitHub [#2](https://github.com/deosiree/tinycode/issues/2) 跟踪未来恢复入口。
+- `goal.md` 和 `issue-graph.md` 是待用户审阅的草稿，尚未批准为开发基线；用户已决定暂缓该 CSV 业务 Goal，当前学习主线转为 TinyCode 通用 Agent Harness。GitHub [#2](https://github.com/deosiree/tinycode/issues/2) 跟踪未来恢复入口，并链接至 [feature/csv-term-translation](https://github.com/deosiree/tinycode/tree/feature/csv-term-translation) 规划分支（快照 `9d969e0`）。
 - 当前图谱有 26 个候选 Issue；Add、Search、来源软删除/恢复分别负责独立服务，真实记忆集成和 Agent workflow E2E 也分层验收。
 - 26 个候选功能 Issue 暂不执行；以后明确开始真实业务场景二开时，先重新核对仓库状态并审阅 Goal、Issue 图和具体计划。经用户批准后只针对 `deosiree/tinycode` fork 创建功能 Issue。
 - 用户已授权在 fork 使用 GitHub Issues；在线核验显示功能已开启。当前仅有暂缓跟踪 Issue #2；26 个候选功能 Issue 尚未发布，仍须逐项经用户审阅批准。

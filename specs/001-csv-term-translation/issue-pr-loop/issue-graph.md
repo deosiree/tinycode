@@ -4,7 +4,7 @@
 
 - Goal：[[goal.md]]（`tinycode-csv-term-translation` / `draft-7`，未批准、暂缓）
 - 仓库：`deosiree/tinycode`（fork；不得向 `helsome/tinycode` 上游写入）
-- 最后核对 GitHub：2026-11-25；`deosiree/tinycode` 的 `hasIssuesEnabled=true`；延期跟踪 Issue [#2](https://github.com/deosiree/tinycode/issues/2) 为 Open；26 个候选功能 Issue 尚未发布；PR #1 已合并到 `main`。用户已授权在该 fork 使用 Issues；功能 Issue 草稿未获逐项批准前不创建。
+- 最后核对 GitHub：2026-11-25；`deosiree/tinycode` 的 `hasIssuesEnabled=true`；延期跟踪 Issue [#2](https://github.com/deosiree/tinycode/issues/2) 为 Open，并链接至[规划分支](https://github.com/deosiree/tinycode/tree/feature/csv-term-translation)，当前规划快照为 `9d969e0`；26 个候选功能 Issue 尚未发布；PR #1 已合并到 `main`。用户已授权在该 fork 使用 Issues；功能 Issue 草稿未获逐项批准前不创建。
 - 依赖事实源：下方 Issue 表；Mermaid 只作展示。
 - 执行状态：用户已决定暂缓 CSV 业务 Goal，转以通用 Agent Harness 学习为主线；GitHub #2 仅跟踪未来恢复入口，当前 26 个候选功能 Issue 均不执行。以后用户明确开始真实业务场景二开时，重新核对状态并审阅 Goal、依赖图和具体 Issue 草稿后再决定发布。上游 `helsome/tinycode` 不在授权范围内。
 - 执行门禁：解锁 Issue 仍需读取实时 GitHub 状态；先保存该 Issue 的 `develop.md` 并由用户确认关键差异，再建立隔离 worktree/分支。
