@@ -4,9 +4,9 @@
 
 - Goal：[[goal.md]]（`tinycode-csv-term-translation` / `draft-7`，未批准、暂缓）
 - 仓库：`deosiree/tinycode`（fork；不得向 `helsome/tinycode` 上游写入）
-- 最后核对 GitHub：2026-11-25；`deosiree/tinycode` 的 `hasIssuesEnabled=true`，Issue 列表为空；PR #1 已合并到 `main`。用户已授权在该 fork 使用 Issues；草稿未获逐项批准前不创建 Issue。
+- 最后核对 GitHub：2026-11-25；`deosiree/tinycode` 的 `hasIssuesEnabled=true`；延期跟踪 Issue [#2](https://github.com/deosiree/tinycode/issues/2) 为 Open；26 个候选功能 Issue 尚未发布；PR #1 已合并到 `main`。用户已授权在该 fork 使用 Issues；功能 Issue 草稿未获逐项批准前不创建。
 - 依赖事实源：下方 Issue 表；Mermaid 只作展示。
-- 执行状态：用户已决定暂缓 CSV 业务 Goal，转以通用 Agent Harness 学习为主线；当前 26 个候选功能 Issue 均不执行。以后用户明确开始真实业务场景二开时，重新核对状态并审阅 Goal、依赖图和具体 Issue 草稿后再决定发布。上游 `helsome/tinycode` 不在授权范围内。
+- 执行状态：用户已决定暂缓 CSV 业务 Goal，转以通用 Agent Harness 学习为主线；GitHub #2 仅跟踪未来恢复入口，当前 26 个候选功能 Issue 均不执行。以后用户明确开始真实业务场景二开时，重新核对状态并审阅 Goal、依赖图和具体 Issue 草稿后再决定发布。上游 `helsome/tinycode` 不在授权范围内。
 - 执行门禁：解锁 Issue 仍需读取实时 GitHub 状态；先保存该 Issue 的 `develop.md` 并由用户确认关键差异，再建立隔离 worktree/分支。
 - 目标分支策略草稿：Issue PR 依依赖顺序合入 `feature/csv-term-translation`；最终集成 PR 指向 `main`。创建每个 PR 前重新核验 fork 在线规则与目标分支。
 - 执行并发：无依赖不自动代表可并行；仅在接口冻结、文件所有权互斥、测试数据隔离且每项使用独立 worktree 时启用。最多 3 个 Agent 同时执行。
