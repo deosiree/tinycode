@@ -7,6 +7,7 @@ dist/
 # secrets & local credentials — never commit
 .env
 .env.*
+!.env.template
 *.pem
 *.key
 .tinycode/*.local.json
