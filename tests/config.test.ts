@@ -41,9 +41,13 @@ describe("config loader", () => {
 
   it("reports schema violations as warnings instead of crashing", () => {
     fs.mkdirSync(path.join(root, ".tinycode"));
-    fs.writeFileSync(path.join(root, ".tinycode", "config.json"), "{ permissionMode: 'sometimes' }");
-    const { warnings } = loadConfig(root);
-    expect(warnings.length).toBeGreaterThan(0);
+    fs.writeFileSync(
+      path.join(root, ".tinycode", "config.json"),
+      JSON.stringify({ permissionMode: "sometimes" }),
+    );
+    const { config, warnings } = loadConfig(root);
+    expect(config.permissionMode).toBeUndefined();
+    expect(warnings.join(" ")).toContain("permissionMode");
   });
 
   it("environment overrides the file; TINYCODE_MODEL parses provider/model", () => {
